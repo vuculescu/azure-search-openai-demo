@@ -6,12 +6,13 @@ model:
     parameters:
         tools: ${file:chat_query_rewrite_tools.json}
 sample:
-    user_query: Does it include hearing?
+    user_query: I don't understand
     past_messages:
         - role: user
-          content: "What is included in my Northwind Health Plus plan that is not in standard?"
+          content: "What is a research design?"
         - role: assistant
-          content: "The Northwind Health Plus plan includes coverage for emergency services, mental health and substance abuse coverage, and out-of-network services, which are not included in the Northwind Standard plan. [Benefit_Options.pdf#page=3]"
+          content: "A research design includes: research questions/hypotheses, methodology choice, data collection strategy, analysis plan, and practical considerations (like timeline and resources). The main types are: experimental designs, observational designs, survey designs, and qualitative designs.
+This structured plan ensures the study will effectively answer the research questions, produce valid results, and use resources efficiently. [Various answers to PoS student questions, 2021-2023.pdf#page=3]"
 ---
 system:
 Below is a history of the conversation so far, and a new question asked by the user that needs to be answered by searching in a knowledge base.
@@ -24,16 +25,10 @@ If the question is not in English, translate the question to English before gene
 If you cannot generate a search query, return just the number 0.
 
 user:
-(EXAMPLE) How did crypto do last year?
+(EXAMPLE) What are some practical considerations in relation to sample size?
 
 assistant:
-Summarize Cryptocurrency Market Dynamics from last year
-
-user:
-(EXAMPLE) What are my health plans?
-
-assistant:
-Show available health plans
+Summarize practical considerations.
 
 {% for message in past_messages %}
 {{ message["role"] }}:

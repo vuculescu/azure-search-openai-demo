@@ -8,6 +8,9 @@ import time
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, Union, cast
 
+from auth.auth_utils import get_authenticated_user_details
+from chat_history.cosmosdb import perform_rate_limit_check
+
 from azure.cognitiveservices.speech import (
     ResultReason,
     SpeechConfig,
@@ -168,6 +171,8 @@ async def content_file(path: str, auth_claims: Dict[str, Any]):
     return await send_file(blob_file, mimetype=mime_type, as_attachment=False, attachment_filename=path)
 
 
+
+
 @bp.route("/ask", methods=["POST"])
 @authenticated
 async def ask(auth_claims: Dict[str, Any]):
@@ -206,12 +211,31 @@ async def format_as_ndjson(r: AsyncGenerator[dict, None]) -> AsyncGenerator[str,
         logging.exception("Exception while generating response stream: %s", error)
         yield json.dumps(error_dict(error))
 
+def getuser():
+    try:
+        authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    except:
+        username= "nouser" 
+    return authenticated_user
 
 @bp.route("/chat", methods=["POST"])
 @authenticated
 async def chat(auth_claims: Dict[str, Any]):
     if not request.is_json:
         return jsonify({"error": "request must be json"}), 415
+    
+    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    
+    ratelimit_check = await perform_rate_limit_check(
+        auth_claims=auth_claims, 
+        authenticated_user=authenticated_user
+    )
+    if not ratelimit_check:
+            return error_response(
+        Exception("Rate limit exceeded"),  # Custom message for the error log
+        route="/chat",                    # The route where this occurred
+        status_code=429                   # The rate limit status code
+    )
     request_json = await request.get_json()
     context = request_json.get("context", {})
     context["auth_claims"] = auth_claims
@@ -249,6 +273,19 @@ async def chat_stream(auth_claims: Dict[str, Any]):
     request_json = await request.get_json()
     context = request_json.get("context", {})
     context["auth_claims"] = auth_claims
+    
+    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    ratelimit_check, count = await perform_rate_limit_check(
+        auth_claims=auth_claims, 
+        authenticated_user=authenticated_user
+    )
+    
+    if not ratelimit_check:
+        return error_response(
+        Exception(f"Rate limit exceeded: {count}/6 questions used in the last 7 days"),
+        route="/chat/stream",
+        status_code=429
+    )
     try:
         use_gpt4v = context.get("overrides", {}).get("use_gpt4v", False)
         approach: Approach

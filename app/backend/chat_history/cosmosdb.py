@@ -1,8 +1,9 @@
 import os
 import time
 from typing import Any, Dict, Union
-
+from datetime import datetime, timedelta
 from azure.cosmos.aio import ContainerProxy, CosmosClient
+from auth.auth_utils import get_authenticated_user_details
 from azure.identity.aio import AzureDeveloperCliCredential, ManagedIdentityCredential
 from quart import Blueprint, current_app, jsonify, request
 
@@ -21,14 +22,17 @@ chat_history_cosmosdb_bp = Blueprint("chat_history_cosmos", __name__, static_fol
 @chat_history_cosmosdb_bp.post("/chat_history")
 @authenticated
 async def post_chat_history(auth_claims: Dict[str, Any]):
+    print("Received auth claims:", auth_claims)  # Add this line
     if not current_app.config[CONFIG_CHAT_HISTORY_COSMOS_ENABLED]:
         return jsonify({"error": "Chat history not enabled"}), 400
-
     container: ContainerProxy = current_app.config[CONFIG_COSMOS_HISTORY_CONTAINER]
     if not container:
         return jsonify({"error": "Chat history not enabled"}), 400
-
-    entra_oid = auth_claims.get("oid")
+    
+    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    entra_oid = authenticated_user["user_principal_id"]
+    
+    #entra_oid = auth_claims.get("oid")
     if not entra_oid:
         return jsonify({"error": "User OID not found"}), 401
 
@@ -57,8 +61,9 @@ async def get_chat_history(auth_claims: Dict[str, Any]):
     container: ContainerProxy = current_app.config[CONFIG_COSMOS_HISTORY_CONTAINER]
     if not container:
         return jsonify({"error": "Chat history not enabled"}), 400
-
-    entra_oid = auth_claims.get("oid")
+    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    entra_oid = authenticated_user["user_principal_id"]
+    #entra_oid = auth_claims.get("oid")
     if not entra_oid:
         return jsonify({"error": "User OID not found"}), 401
 
@@ -102,6 +107,75 @@ async def get_chat_history(auth_claims: Dict[str, Any]):
     except Exception as error:
         return error_response(error, "/chat_history/items")
 
+@chat_history_cosmosdb_bp.route("/check_rate_limit", methods=["GET"])
+# In chat_history/cosmosdb.py
+
+# Utility function (not a route)
+async def perform_rate_limit_check(auth_claims: Dict[str, Any], authenticated_user=None):
+    try:
+        user_id = authenticated_user["user_principal_id"]
+        container = current_app.config[CONFIG_COSMOS_HISTORY_CONTAINER]
+        
+        if not container:
+            current_app.logger.error("Cosmos container not found in app config")
+            return False
+
+        exempt_user_ids = [
+            "d938e63e-5abf-4fb4-810f-c2e20b525dbf"
+        ]
+        
+        if user_id in exempt_user_ids:
+            return True
+
+        now = datetime.utcnow()
+        time_window_ago = now - timedelta(days=20)
+        
+        time_window_ago_ms = int(time_window_ago.timestamp() * 1000)  # Convert to milliseconds
+                # First, let's check what documents exist for this user
+            
+        # Then do the actual count
+        time_window_ago = datetime.utcnow() - timedelta(days=7)
+        time_window_ago_ms = int(time_window_ago.timestamp() * 1000)
+        time_window_ago = datetime.utcnow() - timedelta(days=7)
+        time_window_ago_seconds = int(time_window_ago.timestamp())
+        
+        count_query = """
+            SELECT VALUE ARRAY_LENGTH(c.answers)
+            FROM c
+            WHERE c.entra_oid = @userId
+            AND c._ts >= @timeWindow
+        """
+        
+        parameters = [
+            {"name": "@userId", "value": user_id},
+            {"name": "@timeWindow", "value": time_window_ago_seconds}
+        ]
+
+        print(f"Checking rate limit for user {user_id}, time window {time_window_ago_seconds}")  # Debug
+        
+        total_answers = 0
+        parameters = [
+            {"name": "@userId", "value": user_id},
+            {"name": "@timeWindow", "value": time_window_ago_seconds}
+        ]
+
+        async for count in container.query_items(query=count_query, parameters=parameters):
+            if count:
+                total_answers += count
+        print(f"Total answers: {total_answers}")
+        return total_answers <= 6, total_answers
+       
+    except Exception as e:
+        current_app.logger.exception("Rate limit check failed: %s", str(e))
+        return False, 0
+
+# Route that uses the utility function
+@chat_history_cosmosdb_bp.route("/check_rate_limit", methods=["GET"])
+@authenticated
+async def check_rate_limit(auth_claims: Dict[str, Any]):
+    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    is_allowed = await perform_rate_limit_check(authenticated_user)
+    return jsonify({"allowed": is_allowed})
 
 @chat_history_cosmosdb_bp.get("/chat_history/items/<item_id>")
 @authenticated
@@ -112,8 +186,9 @@ async def get_chat_history_session(auth_claims: Dict[str, Any], item_id: str):
     container: ContainerProxy = current_app.config[CONFIG_COSMOS_HISTORY_CONTAINER]
     if not container:
         return jsonify({"error": "Chat history not enabled"}), 400
-
-    entra_oid = auth_claims.get("oid")
+    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    entra_oid = authenticated_user["user_principal_id"]
+    #entra_oid = auth_claims.get("oid")
     if not entra_oid:
         return jsonify({"error": "User OID not found"}), 401
 
@@ -144,8 +219,9 @@ async def delete_chat_history_session(auth_claims: Dict[str, Any], item_id: str)
     container: ContainerProxy = current_app.config[CONFIG_COSMOS_HISTORY_CONTAINER]
     if not container:
         return jsonify({"error": "Chat history not enabled"}), 400
-
-    entra_oid = auth_claims.get("oid")
+    authenticated_user = get_authenticated_user_details(request_headers=request.headers)
+    entra_oid = authenticated_user["user_principal_id"]
+    #entra_oid = auth_claims.get("oid")
     if not entra_oid:
         return jsonify({"error": "User OID not found"}), 401
 

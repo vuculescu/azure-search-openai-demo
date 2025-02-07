@@ -31,7 +31,8 @@ export async function askApi(request: ChatAppRequest, idToken: string | undefine
     });
 
     if (response.status > 299 || !response.ok) {
-        throw Error(`Request failed with status ${response.status}`);
+        const errorData = await response.json();
+        throw Error(errorData.error ||`Request failed with status ${response.status}`);
     }
     const parsedResponse: ChatAppResponseOrError = await response.json();
     if (parsedResponse.error) {
@@ -47,13 +48,19 @@ export async function chatApi(request: ChatAppRequest, shouldStream: boolean, id
         url += "/stream";
     }
     const headers = await getHeaders(idToken);
-    return await fetch(url, {
+    const response = await fetch(url, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify(request)
     });
-}
 
+    if (response.status > 299 || !response.ok) {
+        const errorData = await response.json();
+        throw Error(errorData.error || `Request failed with status ${response.status}`);
+    }
+    
+    return response;
+}
 export async function getSpeechApi(text: string): Promise<string | null> {
     return await fetch("/speech", {
         method: "POST",
