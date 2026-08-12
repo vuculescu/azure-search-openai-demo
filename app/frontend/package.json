@@ -33,6 +33,11 @@
     "react-syntax-highlighter": "^15.6.1",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.0",
+    "class-variance-authority": "^0.7.0",
+    "cookies-next": "^4.2.1",
+    "next": "14.2.3",
+    "@radix-ui/react-slot": "^1.0.2",
+    "tailwind-merge": "^2.3.0",
     "scheduler": "^0.20.2"
   },
   "devDependencies": {

@@ -103,8 +103,7 @@ class RetrieveThenReadApproach(Approach):
             # Azure OpenAI takes the deployment name as the model name
             model=self.chatgpt_deployment if self.chatgpt_deployment else self.chatgpt_model,
             messages=rendered_answer_prompt.all_messages,
-            temperature=overrides.get("temperature", 0.3),
-            max_tokens=1024,
+            max_completion_tokens=1024,
             n=1,
             seed=seed,
         )

@@ -4,7 +4,8 @@ import { Helmet } from "react-helmet-async";
 import { Panel, DefaultButton } from "@fluentui/react";
 import { SparkleFilled } from "@fluentui/react-icons";
 import readNDJSONStream from "ndjson-readablestream";
-
+import { getCookie, setCookie } from "cookies-next";
+import ConsentPrompt from "../../ConsentPrompt";
 import styles from "./Chat.module.css";
 
 import {
@@ -94,7 +95,19 @@ const Chat = () => {
         isPlaying,
         setIsPlaying
     };
-
+    const [hasConsent, setHasConsent] = useState(false);
+    const [hasVisitedConsentPage, setHasVisitedConsentPage] = useState(false);
+    useEffect(() => {
+        // Check if the user consent cookie is set
+        const consent = getCookie("consent_v2");
+        if (consent) {
+            setHasConsent(true);
+        }
+        const visited = getCookie("visited_v2");
+        if (visited) {
+            setHasVisitedConsentPage(true);
+        }
+    }, []);
     const getConfig = async () => {
         configApi().then(config => {
             setShowGPT4VOptions(config.showGPT4VOptions);
@@ -347,7 +360,9 @@ const Chat = () => {
     };
 
     const { t, i18n } = useTranslation();
-
+    if (!hasVisitedConsentPage) {
+        return <ConsentPrompt />;
+    }
     return (
         <div className={styles.container}>
             {/* Setting the page title using react-helmet-async */}

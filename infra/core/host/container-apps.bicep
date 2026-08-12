@@ -59,11 +59,19 @@ module containerAppsEnvironment 'br/public:avm/res/app/managed-environment:0.8.0
   }
 }
 
-module containerRegistry 'br/public:avm/res/container-registry/registry:0.5.1' = {
+module containerRegistrySameRG 'br/public:avm/res/container-registry/registry:0.5.1' = if (empty(containerRegistryResourceGroupName)) {
   name: '${name}-container-registry'
-  scope: !empty(containerRegistryResourceGroupName)
-    ? resourceGroup(containerRegistryResourceGroupName)
-    : resourceGroup()
+  params: {
+    name: containerRegistryName
+    location: location
+    acrAdminUserEnabled: containerRegistryAdminUserEnabled
+    tags: tags
+  }
+}
+
+module containerRegistryDiffRG 'br/public:avm/res/container-registry/registry:0.5.1' = if (!empty(containerRegistryResourceGroupName)) {
+  name: '${name}-container-registry-rg'
+  scope: resourceGroup(containerRegistryResourceGroupName)
   params: {
     name: containerRegistryName
     location: location
@@ -76,5 +84,9 @@ output defaultDomain string = containerAppsEnvironment.outputs.defaultDomain
 output environmentName string = containerAppsEnvironment.outputs.name
 output environmentId string = containerAppsEnvironment.outputs.resourceId
 
-output registryLoginServer string = containerRegistry.outputs.loginServer
-output registryName string = containerRegistry.outputs.name
+output registryLoginServer string = empty(containerRegistryResourceGroupName)
+  ? containerRegistrySameRG.outputs.loginServer!
+  : containerRegistryDiffRG.outputs.loginServer!
+output registryName string = empty(containerRegistryResourceGroupName)
+  ? containerRegistrySameRG.outputs.name!
+  : containerRegistryDiffRG.outputs.name!

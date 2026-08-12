@@ -40,7 +40,7 @@
         "1": "What is a research design",
         "2": "What happens if you don't randomize an experiment",
         "3": "Why is Philosophy of Science useful",
-        "placeholder": "Type a new question (e.g. what is an RTC)"
+        "placeholder": "Type a new question (e.g. what is an RCT)"
     },
     "askTitle": "Ask your data",
     "gpt4vExamples": {

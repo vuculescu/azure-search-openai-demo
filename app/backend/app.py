@@ -536,15 +536,58 @@ async def setup_clients():
     current_app.config[CONFIG_CREDENTIAL] = azure_credential
 
     # Set up clients for AI Search and Storage
+    from azure.core.credentials import AzureKeyCredential
+
+    # Use API key if provided, otherwise use Azure credential
+    AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
+    AZURE_STORAGE_KEY = os.getenv("AZURE_STORAGE_KEY")
+
+    if AZURE_SEARCH_KEY:
+        search_credential = AzureKeyCredential(AZURE_SEARCH_KEY)
+    else:
+        search_credential = azure_credential
+
     search_client = SearchClient(
         endpoint=f"https://{AZURE_SEARCH_SERVICE}.search.windows.net",
         index_name=AZURE_SEARCH_INDEX,
-        credential=azure_credential,
+        credential=search_credential,
     )
 
-    blob_container_client = ContainerClient(
-        f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net", AZURE_STORAGE_CONTAINER, credential=azure_credential
+        # Set up clients for AI Search and Storage
+    from azure.core.credentials import AzureKeyCredential
+
+    # Use API key if provided, otherwise use Azure credential
+    AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_KEY")
+    AZURE_STORAGE_KEY = os.getenv("AZURE_STORAGE_KEY")
+
+    if AZURE_SEARCH_KEY:
+        search_credential = AzureKeyCredential(AZURE_SEARCH_KEY)
+    else:
+        search_credential = azure_credential
+
+    search_client = SearchClient(
+        endpoint=f"https://{AZURE_SEARCH_SERVICE}.search.windows.net",
+        index_name=AZURE_SEARCH_INDEX,
+        credential=search_credential,
     )
+
+    if AZURE_STORAGE_KEY:
+        # Use connection string for storage
+        storage_connection_string = (
+            f"DefaultEndpointsProtocol=https;"
+            f"AccountName={AZURE_STORAGE_ACCOUNT};"
+            f"AccountKey={AZURE_STORAGE_KEY};"
+            f"EndpointSuffix=core.windows.net"
+        )
+        from azure.storage.blob.aio import BlobServiceClient
+        blob_service_client = BlobServiceClient.from_connection_string(storage_connection_string)
+        blob_container_client = blob_service_client.get_container_client(AZURE_STORAGE_CONTAINER)
+    else:
+        blob_container_client = ContainerClient(
+            f"https://{AZURE_STORAGE_ACCOUNT}.blob.core.windows.net", 
+            AZURE_STORAGE_CONTAINER, 
+            credential=azure_credential
+        )
 
     # Set up authentication helper
     search_index = None

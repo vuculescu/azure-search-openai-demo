@@ -118,14 +118,16 @@ async def perform_rate_limit_check(auth_claims: Dict[str, Any], authenticated_us
         
         if not container:
             current_app.logger.error("Cosmos container not found in app config")
-            return False
+            return (False, 0)
 
         exempt_user_ids = [
-            "d938e63e-5abf-4fb4-810f-c2e20b525dbf"
+            "d938e63e-5abf-4fb4-810f-c2e20b525dbf",
+            "00000000-0000-0000-0000-000000000000",
+            "34180cd1-30e1-4f5c-b4f3-82bbe39e10d6"
         ]
         
         if user_id in exempt_user_ids:
-            return True
+            return (True, 0)
 
         now = datetime.utcnow()
         time_window_ago = now - timedelta(days=20)
@@ -163,11 +165,11 @@ async def perform_rate_limit_check(auth_claims: Dict[str, Any], authenticated_us
             if count:
                 total_answers += count
         print(f"Total answers: {total_answers}")
-        return total_answers <= 6, total_answers
+        return (total_answers <= 200, total_answers)
        
     except Exception as e:
         current_app.logger.exception("Rate limit check failed: %s", str(e))
-        return False, 0
+        return (False, 0)
 
 # Route that uses the utility function
 @chat_history_cosmosdb_bp.route("/check_rate_limit", methods=["GET"])
